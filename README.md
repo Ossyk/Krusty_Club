@@ -18,7 +18,8 @@ To use the drone, add the following dependency to your Cargo.toml:
 **Support**
 
 If you need support, feel free to reach out to us via Telegram:
-👉 [Customer Support on Telegram] (https://t.me/+C2llp28S2BpiMzI0)
+
+👉 [Customer Support on Telegram](https://t.me/+C2llp28S2BpiMzI0)
 
 
 
