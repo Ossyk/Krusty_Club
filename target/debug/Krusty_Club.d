@@ -1,0 +1,1 @@
+C:\Users\oussk\RustroverProjects\AP\ PROJECT\Krusty_Club\target\debug\Krusty_Club.exe: C:\Users\oussk\RustroverProjects\AP\ PROJECT\Krusty_Club\src\drone.rs C:\Users\oussk\RustroverProjects\AP\ PROJECT\Krusty_Club\src\main.rs
