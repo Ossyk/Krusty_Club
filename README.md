@@ -1,17 +1,24 @@
-Krusty_Club
+# Krusty_Club
 
 Welcome to the official repository for the Krusty_C drone!
-This repository contains the source code for the Krusty_C drone, located in src/drone.rs.
+This repository contains the source code for the **Krusty_C** drone, located in _src/drone.rs_ .
 
 
-Usage
+
+**Usage**
 
 To use the drone, add the following dependency to your Cargo.toml:
+
+```rust
 [dependencies]
-Krusty_C = { git = "https://github.com/Ossyk/Krusty_Club" }
+👉 Krusty_C = { git = "https://github.com/Ossyk/Krusty_Club.git " } 
+```
 
 
-Support
+**Support**
 
 If you need support, feel free to reach out to us via Telegram:
-https://t.me/+C2llp28S2BpiMzI0
+👉 [Customer Support on Telegram] (https://t.me/+C2llp28S2BpiMzI0)
+
+
+
