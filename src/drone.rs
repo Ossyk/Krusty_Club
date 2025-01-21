@@ -24,7 +24,7 @@ pub struct Krusty_C {
 }
 
 impl Drone for Krusty_C {
-    pub fn new(id: NodeId, sim_contr_send: Sender<DroneEvent>, sim_contr_recv: Receiver<DroneCommand>, packet_recv: Receiver<Packet>, packet_send: HashMap<NodeId, Sender<Packet>>, pdr: f32) -> Self {
+     fn new(id: NodeId, sim_contr_send: Sender<DroneEvent>, sim_contr_recv: Receiver<DroneCommand>, packet_recv: Receiver<Packet>, packet_send: HashMap<NodeId, Sender<Packet>>, pdr: f32) -> Self {
         Self {
             id,
             sim_contr_send,
@@ -37,7 +37,7 @@ impl Drone for Krusty_C {
         }
     }
 
-    pub fn run(&mut self) {
+     fn run(&mut self) {
         let mut seen_flood_ids: HashSet<u64> = HashSet::new(); // Track seen flood IDs locally
         loop {
             select_biased! {
