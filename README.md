@@ -11,7 +11,7 @@ To use the drone, add the following dependency to your Cargo.toml:
 
 ```rust
 [dependencies]
-👉 Krusty_C = { git = "https://github.com/Ossyk/Krusty_Club.git " } 
+👉 Krusty_Club = { git = "https://github.com/Ossyk/Krusty_Club.git " }
 ```
 
 
