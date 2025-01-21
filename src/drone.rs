@@ -106,9 +106,7 @@ impl Krusty_C {
                         PacketType::Ack(_) | PacketType::Nack(_) | PacketType::FloodResponse(_) => {
                             self.sim_contr_send
                                 .send(ControllerShortcut(packet.clone()))
-                                .unwrap_or_else(|err| {
-                                    eprintln!("Failed to send ControllerShortcut: {}", err);
-                                });
+                                .unwrap_or_else(|_| {});
                         }
                         _ => {
                             self.sim_contr_send.send(PacketDropped(packet.clone())).unwrap();
@@ -134,19 +132,17 @@ impl Krusty_C {
                     //packet.routing_header.hop_index-=1;
                     self.sim_contr_send
                         .send(PacketDropped(orig_pkt.clone()))
-                        .unwrap_or_else(|err| eprintln!("Packet has been dropped but sending to sim_controller failed... : {}", err));
+                        .unwrap_or_else(|_| {});
 
                     //manipulate test cases inside send_nack
                     self.send_nack(&packet, NackType::Dropped);
 
                 } else {
-                    sender.send(packet.clone()).unwrap_or_else(|err| {
-                        eprintln!("Failed to forward packet: {}", err);
-                    });
+                    sender.send(packet.clone()).unwrap_or_else(|_| {});
+
                     self.sim_contr_send
                         .send(PacketSent(packet.clone()))
-                        .unwrap_or_else(|err| eprintln!("Packet has been sent correctly, sending to sim_controller now... : {}", err));
-
+                        .unwrap_or_else(|_| {});
                 }
             },
 
@@ -188,7 +184,7 @@ impl Krusty_C {
                 self.pdr = new_pdr ;
             },
             DroneCommand::Crash => {
-                eprintln!("Drone {} crashed.", self.id);
+                //eprintln!("Drone {} crashed.", self.id);
                 self.crashing = true;
                 return;
             },
@@ -269,7 +265,7 @@ impl Krusty_C {
                 self
                     .sim_contr_send
                     .send(ControllerShortcut(packet.clone()))
-                    .unwrap()
+                    .unwrap_or_else(|_| {});
             },
         }
     }
@@ -288,23 +284,14 @@ impl Krusty_C {
                         eprintln!("Failed to forward_back packet: {}", e);
                         self.sim_contr_send
                             .send(ControllerShortcut(packet.clone()))
-                            .unwrap_or_else(|err| {
-                                eprintln!("Failed to send Ack/NACK via ControllerShortcut: {}", err);
-                            });
+                            .unwrap_or_else(|_| {});
                     }
                 }
             }
         }else{
-            eprintln!("No sender available for the previous hop. Sending to Simulation Controller.", );
-            eprintln!("Packet stuck at {}", packet.routing_header.hops[packet.routing_header.hop_index]);
             self.sim_contr_send
                 .send(ControllerShortcut(packet.clone()))
-                .unwrap_or_else(|err| {
-                    eprintln!(
-                        "Failed to send packet via ControllerShortcut: {}",
-                        err
-                    );
-                });
+                .unwrap_or_else(|_| {});
         }
     }
 
@@ -382,22 +369,12 @@ impl Krusty_C {
                         updated_packet.routing_header.hop_index += 1;
                         self.sim_contr_send
                             .send(PacketSent(updated_packet.clone()))
-                            .unwrap_or_else(|err| {
-                                eprintln!("Failed to notify PacketSent for FloodResponse: {}", err);
-                            });
+                            .unwrap_or_else(|_| {});
 
-                        sender.send(updated_packet).unwrap_or_else(|err| {
-                            eprintln!("Drone {} failed to forward FloodResponse to {}: {}", self.id, next_hop, err); });
-
-                    } else {
-                        println!("Drone {} has no sender for next hop {}: forwarding aborted.", self.id, next_hop);
+                        sender.send(updated_packet).unwrap_or_else(|_| {});
                     }
-                } else {
-                    println!("Drone {} is at the last hop in the path trace. No further forwarding required.", self.id);
                 }
 
-            } else {
-                println!("{} is not in the vector", self.id);
             }
 
         }
