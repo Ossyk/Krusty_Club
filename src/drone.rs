@@ -38,7 +38,7 @@ impl Drone for Krusty_C {
     }
 
      fn run(&mut self) {
-        let mut seen_flood_ids: HashSet<u64> = HashSet::new(); // Track seen flood IDs locally
+        let mut seen_flood_ids: HashSet<(NodeId,u64)> = HashSet::new(); // Track seen flood IDs locally
         loop {
             select_biased! {
                 recv(self.sim_contr_recv) -> command => {
@@ -71,7 +71,7 @@ impl Drone for Krusty_C {
 
 
 impl Krusty_C {
-    fn handle_packet(&mut self, mut packet: Packet, seen_flood_ids: &mut HashSet<u64>) {
+    fn handle_packet(&mut self, mut packet: Packet, seen_flood_ids: &mut HashSet<(NodeId, u64)>) {
 
         match packet.pack_type.clone() {
             PacketType::FloodRequest(request) => {
@@ -296,18 +296,18 @@ impl Krusty_C {
     }
 
 
-    fn process_flood_request(&mut self, packet: Packet, request: FloodRequest, seen_flood_ids: &mut HashSet<u64>) {
+    fn process_flood_request(&mut self, packet: Packet, request: FloodRequest, seen_flood_ids: &mut HashSet<(NodeId, u64)>) {
 
         let mut updated_request = request.clone();
 
-        if seen_flood_ids.contains(&request.flood_id) {
+        if seen_flood_ids.contains(&(request.initiator_id,request.flood_id)) {
             updated_request.path_trace.push((self.id, NodeType::Drone));
             self.send_flood_response(packet,&request);
         }else if request.path_trace.contains(&(self.id, NodeType::Drone)) {
             self.send_flood_response(packet,&request);
 
         } else {
-            seen_flood_ids.insert(updated_request.flood_id);
+            seen_flood_ids.insert((updated_request.initiator_id,updated_request.flood_id));
             updated_request.path_trace.push((self.id, NodeType::Drone));
 
             let sender_id = if updated_request.path_trace.len() !=0 {
