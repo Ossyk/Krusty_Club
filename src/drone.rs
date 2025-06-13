@@ -270,27 +270,27 @@ impl Krusty_C {
         }
     }
 
-    fn forward_back(&self, mut packet: &Packet) {
-    if let Some(prev_hop) = packet.routing_header.hops.get(packet.routing_header.hop_index) {
-        if let Some(sender) = self.packet_send.get(&prev_hop) {
-            match sender.send(packet.clone()) {
-                Ok(()) => {
-                    self.sim_contr_send.send(PacketSent(packet.clone())).unwrap();
-                }
-                Err(e) => {
-                    eprintln!("Failed to forward_back packet: {}", e);
-                    self.sim_contr_send
-                        .send(ControllerShortcut(packet.clone()))
-                        .unwrap_or_else(|_| {});
+     fn forward_back(&self, mut packet: &Packet) {
+        if let Some(prev_hop) = packet.routing_header.hops.get(packet.routing_header.hop_index) {
+            if let Some(sender) = self.packet_send.get(&prev_hop) {
+                match sender.send(packet.clone()) {
+                    Ok(()) => {
+                        self.sim_contr_send.send(PacketSent(packet.clone())).unwrap();
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to forward_back packet: {}", e);
+                        self.sim_contr_send
+                            .send(ControllerShortcut(packet.clone()))
+                            .unwrap_or_else(|_| {});
+                    }
                 }
             }
-        }
-    } else {
-        self.sim_contr_send
-            .send(ControllerShortcut(packet.clone()))
-            .unwrap_or_else(|_| {});
-    }
-}
+        } else {
+            self.sim_contr_send
+                .send(ControllerShortcut(packet.clone()))
+                .unwrap_or_else(|_| {});
+            }
+    }
 
 
     fn process_flood_request(&mut self, packet: Packet, request: FloodRequest, seen_flood_ids: &mut HashSet<(NodeId, u64)>) {
