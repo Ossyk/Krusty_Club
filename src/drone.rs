@@ -378,7 +378,6 @@ impl Krusty_C {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use crate::drone::Krusty_C;
