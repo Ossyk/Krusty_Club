@@ -1,0 +1,1 @@
+C:\Users\oussk\RustroverProjects\AP\ PROJECT\Krusty_Club\target\debug\libKrusty_Club.rlib: C:\Users\oussk\RustroverProjects\AP\ PROJECT\Krusty_Club\src\drone.rs C:\Users\oussk\RustroverProjects\AP\ PROJECT\Krusty_Club\src\lib.rs

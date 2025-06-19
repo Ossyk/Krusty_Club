@@ -24,7 +24,7 @@ pub struct Krusty_C {
 }
 
 impl Drone for Krusty_C {
-    fn new(id: NodeId, sim_contr_send: Sender<DroneEvent>, sim_contr_recv: Receiver<DroneCommand>, packet_recv: Receiver<Packet>, packet_send: HashMap<NodeId, Sender<Packet>>, pdr: f32) -> Self {
+     fn new(id: NodeId, sim_contr_send: Sender<DroneEvent>, sim_contr_recv: Receiver<DroneCommand>, packet_recv: Receiver<Packet>, packet_send: HashMap<NodeId, Sender<Packet>>, pdr: f32) -> Self {
         Self {
             id,
             sim_contr_send,
@@ -37,8 +37,8 @@ impl Drone for Krusty_C {
         }
     }
 
-    fn run(&mut self) {
-        let mut seen_flood_ids: HashSet<u64> = HashSet::new(); // Track seen flood IDs locally
+     fn run(&mut self) {
+        let mut seen_flood_ids: HashSet<(NodeId,u64)> = HashSet::new(); // Track seen flood IDs locally
         loop {
             select_biased! {
                 recv(self.sim_contr_recv) -> command => {
@@ -71,7 +71,7 @@ impl Drone for Krusty_C {
 
 
 impl Krusty_C {
-    fn handle_packet(&mut self, mut packet: Packet, seen_flood_ids: &mut HashSet<u64>) {
+    fn handle_packet(&mut self, mut packet: Packet, seen_flood_ids: &mut HashSet<(NodeId, u64)>) {
 
         match packet.pack_type.clone() {
             PacketType::FloodRequest(request) => {
@@ -106,9 +106,7 @@ impl Krusty_C {
                         PacketType::Ack(_) | PacketType::Nack(_) | PacketType::FloodResponse(_) => {
                             self.sim_contr_send
                                 .send(ControllerShortcut(packet.clone()))
-                                .unwrap_or_else(|err| {
-                                    eprintln!("Failed to send ControllerShortcut: {}", err);
-                                });
+                                .unwrap_or_else(|_| {});
                         }
                         _ => {
                             self.sim_contr_send.send(PacketDropped(packet.clone())).unwrap();
@@ -134,19 +132,17 @@ impl Krusty_C {
                     //packet.routing_header.hop_index-=1;
                     self.sim_contr_send
                         .send(PacketDropped(orig_pkt.clone()))
-                        .unwrap_or_else(|err| eprintln!("Packet has been dropped but sending to sim_controller failed... : {}", err));
+                        .unwrap_or_else(|_| {});
 
                     //manipulate test cases inside send_nack
                     self.send_nack(&packet, NackType::Dropped);
 
                 } else {
-                    sender.send(packet.clone()).unwrap_or_else(|err| {
-                        eprintln!("Failed to forward packet: {}", err);
-                    });
+                    sender.send(packet.clone()).unwrap_or_else(|_| {});
+
                     self.sim_contr_send
                         .send(PacketSent(packet.clone()))
-                        .unwrap_or_else(|err| eprintln!("Packet has been sent correctly, sending to sim_controller now... : {}", err));
-
+                        .unwrap_or_else(|_| {});
                 }
             },
 
@@ -188,7 +184,7 @@ impl Krusty_C {
                 self.pdr = new_pdr ;
             },
             DroneCommand::Crash => {
-                eprintln!("Drone {} crashed.", self.id);
+                //eprintln!("Drone {} crashed.", self.id);
                 self.crashing = true;
                 return;
             },
@@ -269,58 +265,45 @@ impl Krusty_C {
                 self
                     .sim_contr_send
                     .send(ControllerShortcut(packet.clone()))
-                    .unwrap()
+                    .unwrap_or_else(|_| {});
             },
         }
     }
 
     fn forward_back(&self, mut packet: &Packet) {
-
         if let Some(prev_hop) = packet.routing_header.hops.get(packet.routing_header.hop_index) {
             if let Some(sender) = self.packet_send.get(&prev_hop) {
-                match sender.try_send(packet.clone()) {
+                match sender.send(packet.clone()) {
                     Ok(()) => {
-                        sender.send(packet.clone()).unwrap();
                         self.sim_contr_send.send(PacketSent(packet.clone())).unwrap();
                     }
-
                     Err(e) => {
                         eprintln!("Failed to forward_back packet: {}", e);
                         self.sim_contr_send
                             .send(ControllerShortcut(packet.clone()))
-                            .unwrap_or_else(|err| {
-                                eprintln!("Failed to send Ack/NACK via ControllerShortcut: {}", err);
-                            });
+                            .unwrap_or_else(|_| {});
                     }
                 }
             }
-        }else{
-            eprintln!("No sender available for the previous hop. Sending to Simulation Controller.", );
-            eprintln!("Packet stuck at {}", packet.routing_header.hops[packet.routing_header.hop_index]);
+        } else {
             self.sim_contr_send
                 .send(ControllerShortcut(packet.clone()))
-                .unwrap_or_else(|err| {
-                    eprintln!(
-                        "Failed to send packet via ControllerShortcut: {}",
-                        err
-                    );
-                });
-        }
+                .unwrap_or_else(|_|{});
+            }
     }
 
-
-    fn process_flood_request(&mut self, packet: Packet, request: FloodRequest, seen_flood_ids: &mut HashSet<u64>) {
+    fn process_flood_request(&mut self, packet: Packet, request: FloodRequest, seen_flood_ids: &mut HashSet<(NodeId, u64)>) {
 
         let mut updated_request = request.clone();
 
-        if seen_flood_ids.contains(&request.flood_id) {
+        if seen_flood_ids.contains(&(request.initiator_id,request.flood_id)) {
             updated_request.path_trace.push((self.id, NodeType::Drone));
             self.send_flood_response(packet,&request);
         }else if request.path_trace.contains(&(self.id, NodeType::Drone)) {
             self.send_flood_response(packet,&request);
 
         } else {
-            seen_flood_ids.insert(updated_request.flood_id);
+            seen_flood_ids.insert((updated_request.initiator_id,updated_request.flood_id));
             updated_request.path_trace.push((self.id, NodeType::Drone));
 
             let sender_id = if updated_request.path_trace.len() !=0 {
@@ -382,24 +365,114 @@ impl Krusty_C {
                         updated_packet.routing_header.hop_index += 1;
                         self.sim_contr_send
                             .send(PacketSent(updated_packet.clone()))
-                            .unwrap_or_else(|err| {
-                                eprintln!("Failed to notify PacketSent for FloodResponse: {}", err);
-                            });
+                            .unwrap_or_else(|_| {});
 
-                        sender.send(updated_packet).unwrap_or_else(|err| {
-                            eprintln!("Drone {} failed to forward FloodResponse to {}: {}", self.id, next_hop, err); });
-
-                    } else {
-                        println!("Drone {} has no sender for next hop {}: forwarding aborted.", self.id, next_hop);
+                        sender.send(updated_packet).unwrap_or_else(|_| {});
                     }
-                } else {
-                    println!("Drone {} is at the last hop in the path trace. No further forwarding required.", self.id);
                 }
 
-            } else {
-                println!("{} is not in the vector", self.id);
             }
 
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use crate::drone::Krusty_C;
+    use crate::tests::tests::{generic_chain_fragment_ack, generic_chain_fragment_drop, generic_fragment_drop, generic_fragment_forward, test_drone_crash, test_flood_request};
+    use crate::drone::*;
+    use crate::tests::tests::{set_pdr_command_test,crash_command_test,remove_sender_command_test,add_channel_command_test,drone_event_controller_shortcut_test , fragment_forwarding, ack_forwarding,nack_forwarding,flood_response_forwarding};
+    use crate::tests::tests::{flood_response_end_in_drone_test,flood_request_already_received_test,flood_request_forwarding_test,nack_destination_is_drone_test,nack_error_in_routing_test,nack_dropped_test};
+
+
+    #[test]
+    fn test_fragment_drop() {
+        generic_fragment_drop::<Krusty_C>();
+    }
+    #[test]
+    fn test_chain_fragment_drop() {
+        generic_chain_fragment_drop::<Krusty_C>();
+    }
+    #[test]
+    fn test_chain_fragment_ack() {
+        generic_chain_fragment_ack::<Krusty_C>();
+    }
+
+    #[test]
+    fn test_set_pdr_command(){
+        set_pdr_command_test();
+    }
+    #[test]
+    fn test_crash_command(){
+        crash_command_test();
+    }
+    #[test]
+    fn test_remove_sender_command(){
+        remove_sender_command_test();
+    }
+    #[test]
+    fn test_add_channel_command(){
+        add_channel_command_test();
+    }
+    #[test]
+    fn test_drone_event_controller_shortcut(){
+        drone_event_controller_shortcut_test();
+    } //added case of nack-ack-floodreq when recip Unexpected
+
+
+    #[test]
+    fn test_fragment_forwarding(){
+        fragment_forwarding();
+    }
+    #[test]
+    fn test_ack_forwarding(){
+        ack_forwarding();
+    }
+
+    #[test]
+    fn test_nack_forwarding(){
+        nack_forwarding();
+    }
+
+
+    #[test]
+    fn test_flood_response_forwarding(){
+        flood_response_forwarding();
+    }
+
+    #[test]
+    fn test_flood_response_end_in_drone(){
+        flood_response_end_in_drone_test();
+    }
+
+    #[test]
+    fn test_flood_request_already_received(){
+        flood_request_already_received_test();
+    }
+
+
+    #[test]
+    fn test_flood_request_forwarding(){
+        flood_request_forwarding_test();
+    } //when tested alone passed
+
+    #[test]
+    fn test_nack_destination_is_drone(){
+        nack_destination_is_drone_test();
+    } //solved by inserting self in pos 0
+    #[test]
+    fn test_nack_error_in_routing(){
+        nack_error_in_routing_test();
+    } //inserting self in pos 0 +
+
+    #[test]
+    fn test_nack_dropped(){
+        nack_dropped_test();
+    } //solved by passing orig pkt
+
+
+
+}
+
